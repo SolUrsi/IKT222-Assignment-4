@@ -17,4 +17,4 @@
     ./gradlew run
     ```
 
-## Finished :white-checkmark: 
+## Finished ✔️ 
