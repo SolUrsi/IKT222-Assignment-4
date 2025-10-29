@@ -22,12 +22,13 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
 
+
 @SuppressWarnings("serial")
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  private static final String AUTH_QUERY = "select * from user where username='%s' and password='%s'";
-  private static final String SEARCH_QUERY = "select * from patient where surname like '%s'";
+  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
+  private static final String SEARCH_QUERY = "select * from patient where surname like ?";
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -98,10 +99,20 @@ public class AppServlet extends HttpServlet {
   }
 
   private boolean authenticated(String username, String password) throws SQLException {
-    String query = String.format(AUTH_QUERY, username, password);
-    try (Statement stmt = database.createStatement()) {
-      ResultSet results = stmt.executeQuery(query);
-      return results.next();
+
+      // Prepare the SQL statement with placeholders
+    try (java.sql.PreparedStatement pstmt = database.prepareStatement(AUTH_QUERY)) {
+
+        // Bind the user input to the placeholders
+        // Driver handles escaping and treats ' or '1=1-- as literal strings
+        pstmt.setString(1, username); // Binds 'username' to the first '?'
+        pstmt.setString(2, password); // Binds 'password' to the second '?'
+
+        // Execute defined query
+        try (ResultSet results = pstmt.executeQuery()) {
+            // Check if any row was returned
+            return results.next();
+        }
     }
   }
 
