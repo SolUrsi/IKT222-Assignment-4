@@ -17,4 +17,20 @@
     ./gradlew run
     ```
 
-## Finished ✔️ 
+4. Enter the `test/` directory to test for sql injections, my own result ouput can be found in results.txt:
+
+    ```bash
+    # Create venv
+    python -m venv venv
+
+    # Activate venv (Windows)
+    .\venv\Scripts\activate
+
+    # Install requirements
+    python -m pip install -r requirements.txt
+
+    # Run payload injection test
+    python injection.py
+    ```
+
+## Finished ✔️
