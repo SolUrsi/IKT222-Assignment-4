@@ -186,29 +186,33 @@ public class AppServlet extends HttpServlet {
       try (ResultSet results = pstmt.executeQuery()) {
         while (results.next()) {
           Record rec = new Record();
+          String errorMsg = "DECRYPTION FAILED";
+
+          // Plaintext data
+          rec.setSurname(results.getString(2)); 
+          rec.setDoctorId(results.getString(6));
 
           // Retrieve encrypted data
-          String encryptedSurname = results.getString(2);
           String encryptedForename = results.getString(3);
           String encryptedAddress = results.getString(4);
+          String encryptedBorn = results.getString(5);            
+          String encryptedTreatedFor = results.getString(7);
 
           try {
-            // Decrypting sensitive columns
-            rec.setSurname(decrypt(encryptedSurname));
+            // Decrypting and setting sensitive columns
             rec.setForename(decrypt(encryptedForename));
             rec.setAddress(decrypt(encryptedAddress));
+            rec.setDateOfBirth(decrypt(encryptedBorn)); 
+            rec.setDiagnosis(decrypt(encryptedTreatedFor));
           } catch (Exception e) {
             System.err.println(
                 "Decryption failed for a record. Data might be corrupted or key is wrong: " + e.getMessage());
             // Set fields to an error message or null if decryption fails
-            rec.setSurname("DECRYPTION FAILED");
-            rec.setForename("DECRYPTION FAILED");
-            rec.setAddress("DECRYPTION FAILED");
+            rec.setForename(errorMsg);
+            rec.setAddress(errorMsg);
+            rec.setDateOfBirth(errorMsg);
+            rec.setDiagnosis(errorMsg);
           }
-          rec.setDateOfBirth(results.getString(5));
-          rec.setDoctorId(results.getString(6));
-          rec.setDiagnosis(results.getString(7));
-
           records.add(rec);
         }
       }
