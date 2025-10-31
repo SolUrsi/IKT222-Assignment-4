@@ -19,14 +19,16 @@ import java.util.List;
 class PatientRecord {
     int id;
     String forename;
-    String surname;
+    String born;
     String address;
+    String treatedfor;
 
-    public PatientRecord(int id, String forename, String surname, String address) {
+    public PatientRecord(int id, String forename, String born, String address, String treatedfor) {
         this.id = id;
         this.forename = forename;
-        this.surname = surname;
+        this.born = born;
         this.address = address;
+        this.treatedfor = treatedfor;
     }
 }
 
@@ -38,8 +40,8 @@ public class EncryptPatients {
     private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
 
     // SQL queries
-    private static final String SELECT_PATIENTS_QUERY = "SELECT id, forename, surname, address FROM patient";
-    private static final String UPDATE_PATIENT_QUERY = "UPDATE patient SET forename = ?, surname = ?, address = ? WHERE id = ?";
+    private static final String SELECT_PATIENTS_QUERY = "SELECT id, forename, born, address, treated_for FROM patient";
+    private static final String UPDATE_PATIENT_QUERY = "UPDATE patient SET forename = ?, born = ?, address = ?, treated_for = ? WHERE id = ?";
 
     private static SecretKeySpec getKeySpec() {
         return new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), ALGORITHM);
@@ -100,8 +102,9 @@ public class EncryptPatients {
                     patientsToEncrypt.add(new PatientRecord(
                         id,
                         forename,
-                        patients.getString("surname"),
-                        patients.getString("address")
+                        patients.getString("born"),
+                        patients.getString("address"),
+                        patients.getString("treated_for")
                     ));
                 }
             }
@@ -118,13 +121,15 @@ public class EncryptPatients {
 
             for (PatientRecord record : patientsToEncrypt) {
                 String encryptedForename = encrypt(record.forename);
-                String encryptedSurname = encrypt(record.surname);
+                String encryptedborn = encrypt(record.born);
                 String encryptedAddress = encrypt(record.address);
+                String encryptedTreatedFor = encrypt(record.treatedfor);
 
                 updateStatement.setString(1, encryptedForename);
-                updateStatement.setString(2, encryptedSurname);
+                updateStatement.setString(2, encryptedborn);
                 updateStatement.setString(3, encryptedAddress);
-                updateStatement.setInt(4, record.id);
+                updateStatement.setString(4, encryptedTreatedFor);
+                updateStatement.setInt(5, record.id);
                 updateStatement.addBatch();
                 count++;
             }
