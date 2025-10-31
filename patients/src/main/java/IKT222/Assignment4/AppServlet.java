@@ -22,12 +22,16 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
 
+// BCrypt library for password hashing
+import org.mindrot.jbcrypt.BCrypt;
+
 
 @SuppressWarnings("serial")
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
+  // Updated AUTH_QUERY to select hashed password
+  private static final String AUTH_QUERY = "select password from user where username=?";
   private static final String SEARCH_QUERY = "select * from patient where surname like ?";
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
@@ -106,12 +110,22 @@ public class AppServlet extends HttpServlet {
         // Bind the user input to the placeholders
         // Driver handles escaping and treats ' or '1=1-- as literal strings
         pstmt.setString(1, username); // Binds 'username' to the first '?'
-        pstmt.setString(2, password); // Binds 'password' to the second '?'
+        
 
         // Execute defined query
         try (ResultSet results = pstmt.executeQuery()) {
-            // Check if any row was returned
-            return results.next();
+          // Check if a user with that username was found  
+          if (results.next()) {
+            // User found, get the stored hashed password
+            String storedHash = results.getString("password");
+
+            // Verify the provided password against the stored hash
+            // BCrypt.checkpw handles all the salt comparison logic
+            return BCrypt.checkpw(password, storedHash);
+          } else {
+            // No such user found
+            return false;
+          }
         }
     }
   }
