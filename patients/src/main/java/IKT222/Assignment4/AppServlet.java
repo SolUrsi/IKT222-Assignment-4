@@ -6,7 +6,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -118,20 +118,30 @@ public class AppServlet extends HttpServlet {
 
   private List<Record> searchResults(String surname) throws SQLException {
     List<Record> records = new ArrayList<>();
-    String query = String.format(SEARCH_QUERY, surname);
-    try (Statement stmt = database.createStatement()) {
-      ResultSet results = stmt.executeQuery(query);
-      while (results.next()) {
-        Record rec = new Record();
-        rec.setSurname(results.getString(2));
-        rec.setForename(results.getString(3));
-        rec.setAddress(results.getString(4));
-        rec.setDateOfBirth(results.getString(5));
-        rec.setDoctorId(results.getString(6));
-        rec.setDiagnosis(results.getString(7));
-        records.add(rec);
+
+    // Prepare the SQL statement with a placeholder
+    try (java.sql.PreparedStatement pstmt = database.prepareStatement(SEARCH_QUERY)){
+      
+      // Bind the user input to the placeholder, manually adding wildcards 
+      // as PreparedStatement only protects user input itself
+      pstmt.setString(1, '%' + surname + "%"); 
+
+      // Execute defined query
+      try(ResultSet results = pstmt.executeQuery()){
+        while (results.next()) {
+          Record rec = new Record();
+          rec.setSurname(results.getString(2));
+          rec.setForename(results.getString(3));
+          rec.setAddress(results.getString(4));
+          rec.setDateOfBirth(results.getString(5));
+          rec.setDoctorId(results.getString(6));
+          rec.setDiagnosis(results.getString(7));
+          records.add(rec);
+        }
       }
     }
     return records;
   }
+  
 }
+
