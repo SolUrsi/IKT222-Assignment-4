@@ -13,6 +13,8 @@ import org.mindrot.jbcrypt.BCrypt;
 /* 
  * Utility to hash all plaintext passwords in the 'user' table of the database.
  * This will only be run once to hash all password entries in the user table.
+ * This has already been run, and the AppServlet.java has been updated to verify hashed passwords.
+ * - Bjørn Sødal
  */
 
 public class HashPasswords {
