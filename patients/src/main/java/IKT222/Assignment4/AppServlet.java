@@ -22,9 +22,14 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.spec.IvParameterSpec;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
+
 // BCrypt library for password hashing
 import org.mindrot.jbcrypt.BCrypt;
-
 
 @SuppressWarnings("serial")
 public class AppServlet extends HttpServlet {
@@ -34,6 +39,11 @@ public class AppServlet extends HttpServlet {
   private static final String AUTH_QUERY = "select password from user where username=?";
   private static final String SEARCH_QUERY = "select * from patient where surname like ?";
 
+  // AES cipher parameters
+  private static final String SECRET_KEY = "SupastrongKey123";
+  private static final String ALGORITHM = "AES";
+  private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
+
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
 
@@ -41,6 +51,39 @@ public class AppServlet extends HttpServlet {
   public void init() throws ServletException {
     configureTemplateEngine();
     connectToDatabase();
+  }
+
+  // Helper to get the key spec
+  private static SecretKeySpec getKeySpec() {
+    return new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+  }
+
+  // Decryption method
+  private static String decrypt(String encryptedText) throws Exception {
+    if (encryptedText == null || encryptedText.isEmpty()) {
+      return null;
+    }
+
+    byte[] combined = Base64.getDecoder().decode(encryptedText);
+    final int IV_LENGTH = 16;
+
+    if (combined.length < IV_LENGTH) {
+      throw new IllegalArgumentException("Encrypted data is too short to contain a valid IV.");
+    }
+
+    byte[] iv = new byte[IV_LENGTH];
+    System.arraycopy(combined, 0, iv, 0, IV_LENGTH);
+    IvParameterSpec ivSpec = new IvParameterSpec(iv);
+
+    int cipherTextLength = combined.length - IV_LENGTH;
+    byte[] cipherText = new byte[cipherTextLength];
+    System.arraycopy(combined, IV_LENGTH, cipherText, 0, cipherTextLength);
+
+    Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+    cipher.init(Cipher.DECRYPT_MODE, getKeySpec(), ivSpec);
+
+    byte[] decryptedBytes = cipher.doFinal(cipherText);
+    return new String(decryptedBytes, StandardCharsets.UTF_8);
   }
 
   private void configureTemplateEngine() throws ServletException {
@@ -103,59 +146,73 @@ public class AppServlet extends HttpServlet {
   }
 
   private boolean authenticated(String username, String password) throws SQLException {
+    // Prepare the SQL statement with placeholders
+    try (PreparedStatement pstmt = database.prepareStatement(AUTH_QUERY)) {
 
-      // Prepare the SQL statement with placeholders
-    try (java.sql.PreparedStatement pstmt = database.prepareStatement(AUTH_QUERY)) {
+      // Bind the user input to the placeholders
+      // Driver handles escaping and treats ' or '1=1-- as literal strings
+      pstmt.setString(1, username); // Binds 'username' to the first '?'
 
-        // Bind the user input to the placeholders
-        // Driver handles escaping and treats ' or '1=1-- as literal strings
-        pstmt.setString(1, username); // Binds 'username' to the first '?'
-        
+      // Execute defined query
+      try (ResultSet results = pstmt.executeQuery()) {
+        // Check if a user with that username was found
+        if (results.next()) {
+          // User found, get the stored hashed password
+          String storedHash = results.getString("password");
 
-        // Execute defined query
-        try (ResultSet results = pstmt.executeQuery()) {
-          // Check if a user with that username was found  
-          if (results.next()) {
-            // User found, get the stored hashed password
-            String storedHash = results.getString("password");
-
-            // Verify the provided password against the stored hash
-            // BCrypt.checkpw handles all the salt comparison logic
-            return BCrypt.checkpw(password, storedHash);
-          } else {
-            // No such user found
-            return false;
-          }
+          // Verify the provided password against the stored hash
+          // BCrypt.checkpw handles all the salt comparison logic
+          return BCrypt.checkpw(password, storedHash);
+        } else {
+          // No such user found
+          return false;
         }
+      }
     }
   }
 
+  // Modified to decrypt patient data before returning web page
   private List<Record> searchResults(String surname) throws SQLException {
     List<Record> records = new ArrayList<>();
 
     // Prepare the SQL statement with a placeholder
-    try (java.sql.PreparedStatement pstmt = database.prepareStatement(SEARCH_QUERY)){
-      
-      // Bind the user input to the placeholder, manually adding wildcards 
+    try (PreparedStatement pstmt = database.prepareStatement(SEARCH_QUERY)) {
+
+      // Bind the user input to the placeholder, manually adding wildcards
       // as PreparedStatement only protects user input itself
-      pstmt.setString(1, '%' + surname + "%"); 
+      pstmt.setString(1, '%' + surname + "%");
 
       // Execute defined query
-      try(ResultSet results = pstmt.executeQuery()){
+      try (ResultSet results = pstmt.executeQuery()) {
         while (results.next()) {
           Record rec = new Record();
-          rec.setSurname(results.getString(2));
-          rec.setForename(results.getString(3));
-          rec.setAddress(results.getString(4));
+
+          // Retrieve encrypted data
+          String encryptedSurname = results.getString(2);
+          String encryptedForename = results.getString(3);
+          String encryptedAddress = results.getString(4);
+
+          try {
+            // Decrypting sensitive columns
+            rec.setSurname(decrypt(encryptedSurname));
+            rec.setForename(decrypt(encryptedForename));
+            rec.setAddress(decrypt(encryptedAddress));
+          } catch (Exception e) {
+            System.err.println(
+                "Decryption failed for a record. Data might be corrupted or key is wrong: " + e.getMessage());
+            // Set fields to an error message or null if decryption fails
+            rec.setSurname("DECRYPTION FAILED");
+            rec.setForename("DECRYPTION FAILED");
+            rec.setAddress("DECRYPTION FAILED");
+          }
           rec.setDateOfBirth(results.getString(5));
           rec.setDoctorId(results.getString(6));
           rec.setDiagnosis(results.getString(7));
+
           records.add(rec);
         }
       }
     }
     return records;
   }
-  
 }
-

@@ -37,7 +37,7 @@ public class HashPasswords {
             Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection(CONNECTION_URL);
             // Use transactions for batch updates, allows rollback on potential errors
-            connection.setAutoCommit(false); 
+            connection.setAutoCommit(false);
 
             System.out.println("Connected to database.");
 
@@ -59,7 +59,7 @@ public class HashPasswords {
             }
             System.out.println("Found " + userPasswords.size() + " users with plaintext passwords.");
 
-            //Hash and update passwords
+            // Hash and update passwords
             if (userPasswords.isEmpty()) {
                 System.out.println("No plaintext passwords to update.");
                 return;
@@ -107,10 +107,26 @@ public class HashPasswords {
             }
         } finally {
             // Clean up 
-            try { if (users != null) users.close(); } catch (SQLException e) { /* ignored */ }
-            try { if (selectStatement != null) selectStatement.close(); } catch (SQLException e) { /* ignored */ }
-            try { if (updateStatement != null) updateStatement.close(); } catch (SQLException e) { /* ignored */ }
-            try { if (connection != null) connection.close(); } catch (SQLException e) { /* ignored */ }
+            try {
+                if (users != null) users.close();
+            } catch (SQLException e) {
+                /* ignored */
+            }
+            try {
+                if (selectStatement != null) selectStatement.close();
+            } catch (SQLException e) {
+                /* ignored */
+            }
+            try {
+                if (updateStatement != null) updateStatement.close();
+            } catch (SQLException e) {
+                /* ignored */
+            }
+            try {
+                if (connection != null) connection.close();
+            } catch (SQLException e) {
+                /* ignored */
+            }
             System.out.println("Database connection closed.");
         }
     }
